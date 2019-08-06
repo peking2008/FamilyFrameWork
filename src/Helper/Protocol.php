@@ -15,11 +15,19 @@ class Protocol
         \swoole_websocket_frame $frame
     ) {
         $request = new \swoole_http_request();
-        $request->fd = $frame->fd;
-        $request->server['http_method'] = 'POST';
-        $data = json_decode($frame->data);
-        $request->server['path_info'] = $data[0];
-        $request->post = $data[1];
+        $request->server['request_method'] = 'POST';
+        $request->server['server_protocol'] = 'HTTP/1.1';
+        $fun = Config::get('frame_parse_fun');
+        if (!empty($fun)) {
+            $ret = \call_user_func($fun, $frame->data);
+            $request->server['path_info'] = $ret[0];
+
+            $request->post = $ret[1];
+        } else {
+            $request->server['path_info'] = '/';
+            $request->post = $frame->data;
+        }
+        $request->server['server_port'] = Config::get('port', 0);
         return $request;
     }
 
@@ -33,7 +41,7 @@ class Protocol
         $request->server['request_method'] = 'POST';
         $request->server['path_info'] = '/task';
         $request->server['server_protocol'] = 'HTTP/1.1';
-        $request->server['server_port'] = Config::get('port');
+        $request->server['server_port'] = Config::get('port', 0);
         $request->post = $task->data;
         return $request;
     }
